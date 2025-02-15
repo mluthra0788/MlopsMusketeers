@@ -28,13 +28,13 @@ def training():
     min_samples_split = data.get("min_samples_split")
     min_samples_leaf = data.get("min_samples_leaf")
 
-    # return jsonify({
-    #     "message": "Data received successfully",
-    #     "n_estimators": n_estimators,
-    #     "max_depth": max_depth,
-    #     "min_samples_split": min_samples_split,
-    #     "min_samples_leaf": min_samples_leaf
-    # })
+    parameter  = jsonify({
+        "message": "Data received successfully",
+        "n_estimators": n_estimators,
+        "max_depth": max_depth,
+        "min_samples_split": min_samples_split,
+        "min_samples_leaf": min_samples_leaf
+    })
 
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
     # Flatten data for RandomForest  (convert 28x28 to 784 features)
@@ -45,20 +45,9 @@ def training():
     X_train = x_train_flat / 255.0
     X_test = x_test_flat / 255.0
 
-    # Define hyperparameter grid
-    param_grid = {
-        'n_estimators': [100, 200, 300],
-        'max_depth': [10, 20, 30],
-        'min_samples_split': [2, 5, 10],
-        'min_samples_leaf': [1, 2, 4]
-        # 'bootstrap': [True, False]
-    }
+    #mlflow.sklearn.autolog()
 
-
-    mlflow.sklearn.autolog()
-
-    mlflow.set_tracking_uri(uri="http://127.0.0.1:5000")
-
+    mlflow.set_tracking_uri("http://127.0.0.1:8000")
     with mlflow.start_run():
         # Initialize the Random Forest Classifier
         rf = RandomForestClassifier(random_state=42, n_estimators=n_estimators, max_depth =  max_depth, min_samples_split = min_samples_split, min_samples_leaf = min_samples_leaf )
@@ -66,7 +55,7 @@ def training():
         rf.fit(X_train, y_train)
 
         # Log parameters and metrics
-        mlflow.log_param("param_grid", param_grid)
+        mlflow.log_param("param_grid", parameter)
         # Evaluate on test data
         y_pred = rf.predict(X_test)
         test_accuracy = accuracy_score(y_test, y_pred)
@@ -82,6 +71,8 @@ def training():
     mlflow.set_experiment("Random Forest Hyperparameter Tuning on mnist")
     with open("./model_plain/random_classifier.pkl", "wb") as f:
         pickle.dump(rf, f)
+
+    return "success"
 
 
 def get_best_model_params():
