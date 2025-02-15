@@ -1,0 +1,16 @@
+artifact_uri: mlflow-artifacts:/253364769243853118/74ed9cd7bf484ec5b92baae0cfd832e8/artifacts
+deleted_time: 1739606133341
+end_time: 1739605620879
+entry_point_name: ''
+experiment_id: '253364769243853118'
+lifecycle_stage: deleted
+run_id: 74ed9cd7bf484ec5b92baae0cfd832e8
+run_name: upset-wren-470
+run_uuid: 74ed9cd7bf484ec5b92baae0cfd832e8
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1739599133365
+status: 4
+tags: []
+user_id: admin

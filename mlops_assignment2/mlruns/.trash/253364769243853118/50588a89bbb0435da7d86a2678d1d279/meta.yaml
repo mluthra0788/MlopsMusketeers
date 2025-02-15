@@ -1,0 +1,16 @@
+artifact_uri: mlflow-artifacts:/253364769243853118/50588a89bbb0435da7d86a2678d1d279/artifacts
+deleted_time: 1739606133341
+end_time: null
+entry_point_name: ''
+experiment_id: '253364769243853118'
+lifecycle_stage: deleted
+run_id: 50588a89bbb0435da7d86a2678d1d279
+run_name: resilient-bat-490
+run_uuid: 50588a89bbb0435da7d86a2678d1d279
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1739379153842
+status: 1
+tags: []
+user_id: admin
