@@ -75,7 +75,7 @@ def training():
     with open("D:/ML/mlruns/models/random_classifier.pkl", "wb") as f:
         pickle.dump(rf, f)
 
-    return "success review it or working"
+    return "success"
 
 
 def get_best_model_params():
