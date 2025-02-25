@@ -1,25 +1,81 @@
 import numpy as np
 import pandas as pd
+from flask import Flask, request, jsonify
 from keras.datasets import mnist
 import pickle
-
-from nest_asyncio import apply
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.metrics import accuracy_score
 import mlflow
 import mlflow.sklearn
-from flask import Flask, jsonify, request
 
+# initialize the flask app
 app = Flask(__name__)
 
-@app.route('/', methods=['GET'])
-def index():
-    return "This is the index page"
-@app.route('/training', methods=['POST'])
-
+@app.route("/train", methods=["POST"])
 def training():
-    #data = request.get_json()  # status code
+    (x_train, y_train), (x_test, y_test) = mnist.load_data()
+    # Flatten data for RandomForest  (convert 28x28 to 784 features)
+    x_train_flat = x_train.reshape(-1, 784)
+    x_test_flat = x_test.reshape(-1, 784)
+
+    # Normalize pixel values (0-255) to (0-1)
+    X_train = x_train_flat / 255.0
+    X_test = x_test_flat / 255.0
+
+    # Define hyperparameter grid
+    # Define hyperparameter grid
+    n_estimators: [100, 200, 300]
+    max_depth: [10, 20, 30]
+    min_samples_split: [2, 5, 10]
+    min_samples_leaf: [1, 2, 4]
+
+    param_grid = {
+        'n_estimators' : [n_estimators],
+        'max_depth' : [max_depth],
+        'min_samples_split' : [min_samples_split],
+        'min_samples_leaf' : [min_samples_leaf]
+    }
+
+    mlflow.sklearn.autolog()
+
+    # Initialize the Random Forest Classifier
+    rf = RandomForestClassifier(random_state=42)
+
+    # Set up GridSearchCV (taking the cross validation as cv = 5)
+    grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, cv=5, scoring='accuracy', verbose=1)
+    mlflow.set_tracking_uri(uri="http://127.0.0.1:5000")
+
+    with mlflow.start_run():
+        # Fit GridSearchCV
+        grid_search.fit(X_train, y_train)
+
+        # Log parameters and metrics
+        mlflow.log_param("param_grid", param_grid)
+        mlflow.log_params(grid_search.best_params_)
+
+        # Evaluate on test data
+        y_pred = grid_search.best_estimator_.predict(X_test)
+        test_accuracy = accuracy_score(y_test, y_pred)
+
+        mlflow.log_metric("test_accuracy", test_accuracy)
+
+        # Log the best model
+        mlflow.sklearn.log_model(grid_search.best_estimator_, "best_random_forest_model")
+
+        # Report results
+        print("Best Hyperparameters:", grid_search.best_params_)
+        print("Best Cross-Validated Accuracy:", grid_search.best_score_)
+        print("Test Accuracy:", test_accuracy)
+
+    # Start MLflow tracking
+    mlflow.set_experiment("Random Forest Hyperparameter Tuning on mnist")
+    with open("./model_plain/random_classifier.pkl", "wb") as f:
+        pickle.dump(rf, f)
+
+
+@app.route("/getBestParams", methods=["GET"])
+def get_best_model_params():
     data = request.get_json()  # Extract JSON data from request body
 
     # Extract values from JSON
@@ -28,7 +84,7 @@ def training():
     min_samples_split = data.get("min_samples_split")
     min_samples_leaf = data.get("min_samples_leaf")
 
-    parameter  = jsonify({
+    parameter = jsonify({
         "message": "Data received successfully",
         "n_estimators": n_estimators,
         "max_depth": max_depth,
@@ -53,7 +109,8 @@ def training():
     mlflow.set_tracking_uri("http://127.0.0.1:8000")
     with mlflow.start_run():
         # Initialize the Random Forest Classifier
-        rf = RandomForestClassifier(random_state=42, n_estimators=n_estimators, max_depth =  max_depth, min_samples_split = min_samples_split, min_samples_leaf = min_samples_leaf )
+        rf = RandomForestClassifier(random_state=42, n_estimators=n_estimators, max_depth=max_depth,
+                                    min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf)
         # Fit GridSearchCV
         rf.fit(X_train, y_train)
 
@@ -72,34 +129,24 @@ def training():
 
     # Start MLflow tracking
     mlflow.set_experiment("Random Forest Hyperparameter Tuning on mnist")
-    with open("D:/ML/mlruns/models/random_classifier.pkl", "wb") as f:
-        pickle.dump(rf, f)
-
-    return "success review it or working"
-
-
-def get_best_model_params():
-    (x_train, y_train), (x_test, y_test) = mnist.load_data()
-    # Flatten data for RandomForest  (convert 28x28 to 784 features)
-    x_train_flat = x_train.reshape(-1, 784)
-    x_test_flat = x_test.reshape(-1, 784)
-
-    # Normalize pixel values (0-255) to (0-1)
-    X_train = x_train_flat / 255.0
-    X_test = x_test_flat / 255.0
-
-
-    # Initialize the Random Forest Classifier
-    rf = RandomForestClassifier(max_depth=30, min_samples_leaf=1, min_samples_split=2, n_estimators=300,
-                                random_state=42)
-
-    # train the best model
-    rf.fit(X_train, y_train)
 
     with open("./model_best/random_best_classifier.pkl", "wb") as f:
         pickle.dump(rf, f)
 
+    return f"<h3> Classifier Trained Successfully with Tuned Parameters: {parameter}"
 
-# driver function
-if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5000, debug=True)
+
+@app.route("/predict", methods=["POST"])
+def predict():
+    with open("./model_best/random_best_classifier.pkl", "rb") as f:
+        clf = pickle.load(f)
+    payload = request.json
+    x_unknown = [payload["sepal-lenght"],payload["sepal-width"],payload["petal-lenght"],payload["petal-width"]]
+    x_unknown = np.array(x_unknown).reshape(1,-1)
+    prediction = clf.predict(x_unknown)
+    print(payload)
+    return jsonify({"predicted_value":prediction[0]})
+
+
+if __name__ == "__main__":
+    app.run(port=5003)
